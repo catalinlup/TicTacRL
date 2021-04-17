@@ -1,13 +1,14 @@
 
 from enum import Enum
 from typing import List, Tuple
+import numpy as np
 
 class BoardPiece(Enum):
   """
   The state of a TicTacToe cell
   """
-  X = 'X',
-  O = 'O',
+  X = 'X'
+  O = 'O'
   Empty = 'Empty'
 
 class BoardPosition():
@@ -50,22 +51,34 @@ class Board():
     Ctr. for tic tac toe board
     Creates an initially empty Tic Tac Toe board
     """
-    self.board = [[BoardPiece.Empty] * self.BOARD_SIZE] * self.BOARD_SIZE  # the initial state of the board game
+    self.board = np.array([[BoardPiece.Empty] * self.BOARD_SIZE] * self.BOARD_SIZE)  # the initial state of the board game
 
   def set_piece(self, position: BoardPosition, piece: BoardPiece) -> None:
     """
     Add the provided board piece to the provided board position
     """
-    if piece != BoardPiece.X or piece != BoardPiece.Y:
-      raise Exception('Can only place an X piece or an O piece')
+    if piece is not BoardPiece.X and piece is not BoardPiece.O:
+      raise Exception('Can only place an X piece or an O piece, not a {}'.format(piece))
 
-    self.board[position.get_row()][position.get_column()] = piece
+   
+    self.board[position.get_row(), position.get_column()] = piece
 
   def check_cell_piece(self, position: BoardPosition) -> BoardPiece:
     """
     Returns the piece currently at the provided pisition, or BoardPiece.Empty if there is no piece
     """
     return self.board[position.get_row()][position.get_column()]
+
+  def is_full(self) -> bool:
+    """
+    Returns true if the board is full (all cells are filled). False otherwise.
+    """
+    for i in range(3):
+      for j in range(3):
+        if self.check_cell_piece(BoardPosition(i, j)) is BoardPiece.Empty:
+          return False
+
+    return True
 
   def remove_piece(self, position: BoardPosition) -> BoardPiece:
     """
@@ -79,16 +92,27 @@ class Board():
 
     return original_board_piece
 
+  def __str__(self) -> str:
+    cell_to_str = lambda cell: 'X' if cell is BoardPiece.X else ('O' if cell is BoardPiece.O else '_')
+    str_repr = "\n"
+
+    for row in self.board:
+      str_repr += "".join(map(cell_to_str, row))
+      str_repr += "\n"
+
+    return str_repr
+
   def get_board_size(self):
     return self.BOARD_SIZE
 
 class GameState(Enum):
-  WinPlayerX = 'WinPlayerX',
-  WinPlayerO = 'WinPlayerO',
+  WinPlayerX = 'WinPlayerX'
+  WinPlayerO = 'WinPlayerO'
+  Draw = 'Draw'
   NotOver = 'NotOver'
 
 class GameTurn(Enum):
-  PlayerX = 'PlayerX',
+  PlayerX = 'PlayerX'
   PlayerO = 'PlayerO'
 
 class TicTacToe():
@@ -116,13 +140,32 @@ class TicTacToe():
     In case the game is over, nothing happens.
     """
 
+    # check that the game is not over
     if self.game_state is not GameState.NotOver:
       return self.game_state
 
+    # check that there isn't already a piece at the specified position
     if self.board.check_cell_piece(position) != BoardPiece.Empty:
       raise Exception('Illegal Move! There is already a piece at the specified position')
 
     piece_to_be_placed = BoardPiece.X if self.game_turn is GameTurn.PlayerX else BoardPiece.O
+
+    # place the piece on the board
+
+
+    self.board.set_piece(position, piece_to_be_placed)
+
+
+
+    # check the game state
+    self.game_state = self.__compute_game_state_based_on_current_board_confg()
+
+    # advance the turn
+    self.__advance_turn()
+
+
+    # return the current game state
+    return self.game_state
 
   def get_board_configuration(self) -> Board:
     """
@@ -160,6 +203,10 @@ class TicTacToe():
 
     if self.__check_piece_for_winning(piece_to_check):
       return game_state_to_check
+
+    # check if the board is full. If the board is indeed full, it means that the game ended in a draw
+    if self.board.is_full():
+      return GameState.Draw
     
     return GameState.NotOver
   
@@ -228,7 +275,14 @@ class TicTacToe():
     """
     Check that all cells of the secondary diagonal are of the provided board piece
     """
-    second_diag_positions = [BoardPosition(i, self.board.get_board_size() - i) for i in range(self.board.get_board_size())]
+    second_diag_positions = [BoardPosition(i, self.board.get_board_size() - i - 1) for i in range(self.board.get_board_size())]
 
     return self.__check_positions(second_diag_positions, for_piece)
+
+
+def pos(row: int, column: int) -> BoardPosition:
+  """
+  Helper function. Creates a BoardPosition of the provided rows and columns
+  """
+  return BoardPosition(row, column)
 
